@@ -1,6 +1,7 @@
 import torch
 from datasets import Dataset, load_dataset
-from transformers import AutoModelForCausalLM, AutoTokenizer, TrainingArguments
+from transformers import AutoTokenizer, TrainingArguments
+from peft import AutoPeftModelForCausalLM, LoraConfig
 import os
 
 from trl import DPOTrainer
@@ -12,7 +13,7 @@ def args_parse():
 
     parser.add_argument("--beta", type=float, default=0.1)
 
-    parser.add_argument("--model_path", type=str, default="Cartinoe5930/Hermes_SFT")
+    parser.add_argument("--model_path", type=str, default="Cartinoe5930/Hermes_SFT_adapter")
     parser.add_argument("--dataset_path", type=str, default="Cartinoe5930/Hermes_preference")
     parser.add_argument("--learning_rate", type=float, default=2e-5)
     parser.add_argument("--lr_scheduler_type", type=str, default="cosine")
@@ -23,6 +24,10 @@ def args_parse():
     parser.add_argument("--per_device_train_batch_size", type=int, default=8)
     parser.add_argument("--per_device_eval_batch_size", type=int, default=16)
     parser.add_argument("--gradient_checkpointing", type=bool, default=True)
+
+    parser.add_argument("--lora_alpha", type=int, default=16)
+    parser.add_argument("--lora_dropout", type=float, default=0.05)
+    parser.add_argument("--lora_r", type=int, default=8)
 
     parser.add_argument("--max_prompt_length", type=int, default=1024)
     parser.add_argument("--max_length", type=int, default=2048)
@@ -84,14 +89,14 @@ if __name__ == "__main__":
 
     gradient_accumulation_steps = args.batch_size // args.per_device_train_batch_size
 
-    model = AutoModelForCausalLM.from_pretrained(
+    model = AutoPeftModelForCausalLM.from_pretrained(
         args.model_path,
         low_cpu_mem_usage=True,
         torch_dtype=torch.float16
     )
     model.config.use_cache = False
 
-    model_ref = AutoModelForCausalLM.from_pretrained(
+    model_ref = AutoPeftModelForCausalLM.from_pretrained(
         args.model_path,
         low_cpu_mem_usage=True,
         torch_dtype=torch.float16
@@ -136,6 +141,23 @@ if __name__ == "__main__":
         remove_unused_columns=False,
     )
 
+    peft_config = LoraConfig(
+        r=args.lora_r,
+        lora_alpha=args.lora_alpha,
+        lora_dropout=args.lora_dropout,
+        target_modules=[
+            "q_proj",
+            "k_proj",
+            "v_proj",
+            "out_proj",
+            "fc_in",
+            "fc_out",
+            "wte"
+        ],
+        bias="none",
+        task_type="CAUSAL_LM",
+    )
+
     dpo_trainer = DPOTrainer(
         model, 
         model_ref,
@@ -144,13 +166,14 @@ if __name__ == "__main__":
         train_dataset=train_dataset,
         eval_dataset=eval_dataset,
         tokenizer=tokenizer,
+        peft_config=peft_config,
         max_prompt_length=args.max_prompt_length,
         max_length=args.max_length,
     )
 
     dpo_trainer.train()
     dpo_trainer.save_model(args.output_dir)
-    
+
     output_dir = os.path.join(args.output_dir, "final_checkpoint")
     dpo_trainer.model.save_pretrained(output_dir)
     tokenizer.save_pretrained(output_dir)

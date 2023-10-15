@@ -2,6 +2,7 @@ import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer, TrainingArguments
 from accelerate import Accelerator
 from datasets import load_dataset
+from peft import AutoPeftModelForCausalLM, LoraConfig
 from tqdm import tqdm
 
 from trl import SFTTrainer
@@ -9,6 +10,7 @@ from trl.trainer import ConstantLengthDataset
 from accelerate import Accelerator
 
 import argparse
+import os
 
 def args_parse():
     parser = argparse.ArgumentParser()
@@ -27,6 +29,10 @@ def args_parse():
     parser.add_argument("--gradient_checkpointing", type=bool, default=True)
     parser.add_argument("--group_by_length", type=bool, default=False)
     parser.add_argument("--packing", type=bool, default=True)
+
+    parser.add_argument("--lora_alpha", type=int, default=16)
+    parser.add_argument("--lora_dropout", type=float, default=0.05)
+    parser.add_argument("--lora_r", type=int, default=8)
 
     parser.add_argument("--learning_rate", type=float, default=1e-5)
     parser.add_argument("--lr_scheduler_type", type=str, default="cosine")
@@ -97,6 +103,18 @@ if __name__ == "__main__":
     )
     model.config.use_cache = False
 
+    peft_config = LoraConfig(
+        r=args.lora_r,
+        lora_alpha=args.lora_alpha,
+        lora_dropout=args.lora_dropout,
+        target_modules=[
+            "q_proj",
+            "v_proj"
+        ],
+        bias="none",
+        task_type="CAUSAL_LM",
+    )
+
     tokenizer = AutoTokenizer.from_pretrained(
         args.model_name,
         trust_remote_code=True,
@@ -144,6 +162,7 @@ if __name__ == "__main__":
         model=model,
         train_dataset=train_dataset,
         eval_dataset=eval_dataset,
+        peft_config=peft_config,
         packing=args.packing,
         max_seq_length=None,
         tokenizer=tokenizer,
@@ -151,7 +170,17 @@ if __name__ == "__main__":
     )
 
     trainer.train()
-    trainer.save_model(args.output_dir)
 
-    output_dir = args.output_dir + "final_checkpoint"
+    output_dir = os.path.join(args.output_dir, "final_checkpoint")
     trainer.model.save_pretrained(output_dir)
+
+    # Free memory for merging weights
+    del model
+    torch.cuda.empty_cache()
+
+    model = AutoPeftModelForCausalLM.from_pretrained(output_dir, device_map="auto", torch_dtype=torch.bfloat16)
+    model = model.merge_and_unload()
+
+    output_merged_dir = os.path.join(args.output_dir, "final_merged_checkpoint")
+    model.save_pretrained(output_merged_dir)
+    tokenizer.save_pretrained(output_merged_dir)
