@@ -21,15 +21,17 @@ def args_parse():
     parser.add_argument("--warmup_ratio", type=float, default=0.1)
     parser.add_argument("--weight_decay", type=float, default=0.0)
 
-    parser.add_argument("--per_device_train_batch_size", type=int, default=8)
-    parser.add_argument("--per_device_eval_batch_size", type=int, default=16)
+    parser.add_argument("--num_epoch", type=int, default=1)
+    parser.add_argument("--per_device_train_batch_size", type=int, default=4)
+    parser.add_argument("--per_device_eval_batch_size", type=int, default=8)
     parser.add_argument("--gradient_checkpointing", type=bool, default=True)
 
     parser.add_argument("--max_prompt_length", type=int, default=1024)
     parser.add_argument("--max_length", type=int, default=2048)
     parser.add_argument("--logging_steps", type=int, default=100)
-    parser.add_argument("--save_steps", type=int, default=100)
-    parser.add_argument("--eval_steps", type=int, default=100)
+    parser.add_argument("--save_strategy", type=str, help="You can choose the strategy of saving model.")
+    parser.add_argument("--save_steps", type=int, default=1000)
+    parser.add_argument("--eval_steps", type=int, default=1000)
 
     parser.add_argument("--output_dir", type=str, default="DPO/final_checkpoint")
     parser.add_argument("--hf_hub_path", type=str, default="The hub path to upload the model")
@@ -126,10 +128,12 @@ if __name__ == "__main__":
     )
 
     training_args = TrainingArguments(
+        num_train_epochs=args.num_epoch,
         per_device_train_batch_size=args.per_device_train_batch_size,
         per_device_eval_batch_size=args.per_device_eval_batch_size,
         logging_steps=args.logging_steps,
-        save_steps=args.save_steps,
+        save_strategy=args.save_strategy,
+        save_steps=args.save_steps if args.save_strategy == "steps" else None,
         gradient_accumulation_steps=gradient_accumulation_steps,
         gradient_checkpointing=args.gradient_checkpointing,
         learning_rate=args.learning_rate,

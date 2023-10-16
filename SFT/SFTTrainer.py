@@ -23,10 +23,10 @@ def args_parse():
 
     parser.add_argument("--num_epochs", type=int, default=1)
     parser.add_argument("--logging_steps", type=int, default=100)
-    parser.add_argument("--save_steps", type=int, default=100)
-    parser.add_argument("--per_device_train_batch_size", type=int, default=8)
-    parser.add_argument("--per_device_eval_batch_size", type=int, default=16)
-    parser.add_argument("--gradient_checkpointing", type=bool, default=True)
+    parser.add_argument("--save_strategy", type=str, help="You can choose the strategy of saving model.")
+    parser.add_argument("--save_steps", type=int, default=1000)
+    parser.add_argument("--per_device_train_batch_size", type=int, default=4)
+    parser.add_argument("--per_device_eval_batch_size", type=int, default=8)
     parser.add_argument("--group_by_length", type=bool, default=False)
     parser.add_argument("--packing", type=bool, default=True)
 
@@ -139,11 +139,11 @@ if __name__ == "__main__":
         num_train_epochs=args.num_epochs,
         per_device_train_batch_size=args.per_device_train_batch_size,
         gradient_accumulation_steps=gradient_accumulation_steps,
-        gradient_checkpointing=args.gradient_checkpointing,
         per_device_eval_batch_size=args.per_device_eval_batch_size,
         learning_rate=args.learning_rate,
         logging_steps=args.logging_steps,
-        save_steps=args.save_steps,
+        save_strategy=args.sve_strategy,
+        save_steps=args.save_steps if args.save_strategy == "steps" else None,
         group_by_length=args.group_by_length,
         lr_scheduler_type=args.lr_scheduler_type,
         warmup_ratio=args.warmup_ratio,
