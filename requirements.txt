@@ -5,3 +5,4 @@ accelerate
 datasets
 bitsandbytes
 scipy
+flash_attn

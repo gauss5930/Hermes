@@ -24,7 +24,6 @@ def args_parse():
     parser.add_argument("--num_epochs", type=int, default=1)
     parser.add_argument("--logging_steps", type=int, default=100)
     parser.add_argument("--save_steps", type=int, default=100)
-    parser.add_argument("--batch_size", type=int, default=128)
     parser.add_argument("--per_device_train_batch_size", type=int, default=8)
     parser.add_argument("--per_device_eval_batch_size", type=int, default=16)
     parser.add_argument("--gradient_checkpointing", type=bool, default=True)
@@ -96,12 +95,13 @@ def create_datasets(tokenizer, args):
 if __name__ == "__main__":
     args = args_parse()
 
-    gradient_accumulation_steps = args.batch_size // args.per_device_train_batch_size
+    gradient_accumulation_steps = torch.cuda.device_count()
 
     model = AutoModelForCausalLM.from_pretrained(
         args.model_name,
         device_map={"": Accelerator().process_index},
         trust_remote_code=True,
+        use_flash_attention_2=True
     )
     model.config.use_cache = False
 
@@ -109,6 +109,10 @@ if __name__ == "__main__":
         args.model_name,
         trust_remote_code=True,
     )
+
+    tokenizer.sep_token = "[SEP]"
+    tokenizer.cls_token = "[CLS]"
+    tokenizer.mask_token = "[MASK]"
 
     special_tokens_dict = {"additional_special_tokens": ["<unk>", "<s>", "</s>"]}
     num_added_toks = tokenizer.add_special_tokens(special_tokens_dict)
@@ -135,6 +139,7 @@ if __name__ == "__main__":
         num_train_epochs=args.num_epochs,
         per_device_train_batch_size=args.per_device_train_batch_size,
         gradient_accumulation_steps=gradient_accumulation_steps,
+        gradient_checkpointing=args.gradient_checkpointing,
         per_device_eval_batch_size=args.per_device_eval_batch_size,
         learning_rate=args.learning_rate,
         logging_steps=args.logging_steps,

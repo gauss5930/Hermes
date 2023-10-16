@@ -21,7 +21,6 @@ def args_parse():
     parser.add_argument("--warmup_ratio", type=float, default=0.1)
     parser.add_argument("--weight_decay", type=float, default=0.0)
 
-    parser.add_argument("--batch_size", type=int, default=128)
     parser.add_argument("--per_device_train_batch_size", type=int, default=8)
     parser.add_argument("--per_device_eval_batch_size", type=int, default=16)
     parser.add_argument("--gradient_checkpointing", type=bool, default=True)
@@ -85,7 +84,7 @@ def get_hermes_dataset(dataset, tokenizer, num_proc=42):
 if __name__ == "__main__":
     args = args_parse()
 
-    gradient_accumulation_steps = args.batch_size // args.per_device_train_batch_size
+    gradient_accumulation_steps = torch.cuda.device_count()
 
     model = AutoModelForCausalLM.from_pretrained(
         args.model_path,
@@ -102,6 +101,10 @@ if __name__ == "__main__":
 
     tokenizer = AutoTokenizer.from_pretrained(args.model_path)
     tokenizer.pad_token = tokenizer.eos_token
+
+    tokenizer.sep_token = "[SEP]"
+    tokenizer.cls_token = "[CLS]"
+    tokenizer.mask_token = "[MASK]"
 
     dataset = load_dataset(
         args.dataset_path,
