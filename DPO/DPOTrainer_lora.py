@@ -11,6 +11,8 @@ import argparse
 def args_parse():
     parser = argparse.ArgumentParser()
 
+    parser.add_argument("--hf_token", type=str, help="Required to upload models to hub.")
+
     parser.add_argument("--beta", type=float, default=0.1)
 
     parser.add_argument("--model_path", type=str, default="Cartinoe5930/Hermes_SFT_adapter")
@@ -35,7 +37,8 @@ def args_parse():
     parser.add_argument("--save_steps", type=int, default=100)
     parser.add_argument("--eval_steps", type=int, default=100)
 
-    parser.add_argument("--output_dir", type=str, default="DPO/")
+    parser.add_argument("--output_dir", type=str, default="DPO/final_checkpoint")
+    parser.add_argument("--hf_hub_path", type=str, default="The hub path to upload the model")
 
     return parser.parse_args()
 
@@ -174,6 +177,13 @@ if __name__ == "__main__":
     dpo_trainer.train()
     dpo_trainer.save_model(args.output_dir)
 
-    output_dir = os.path.join(args.output_dir, "final_checkpoint")
-    dpo_trainer.model.save_pretrained(output_dir)
-    tokenizer.save_pretrained(output_dir)
+    model.push_to_hub(
+        args.hf_hub_path,
+        use_temp_dir=True,
+        use_auth_token=args.hf_token
+    )
+    tokenizer.push_to_hub(
+        args.hf_hub_path,
+        use_temp_dir=True,
+        use_auth_token=args.hf_token
+    )

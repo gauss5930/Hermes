@@ -14,6 +14,9 @@ import os
 
 def args_parse():
     parser = argparse.ArgumentParser()
+
+    parser.add_argument("--hf_token", type=str, help="Required to upload models to hub.")
+
     parser.add_argument("--model_name", type=str, default="mistralai/Mistral-7B-v0.1")
     parser.add_argument("--dataset_name", type=str, default="stingning/ultrachat")
     parser.add_argument("--split", type=str, default="train")
@@ -43,6 +46,11 @@ def args_parse():
         "--output_dir",
         type=str,
         default="SFT/"
+    )
+    parser.add_argument(
+        "--hf_hub_path",
+        type=str,
+        help="The hub path to upload the model"
     )
 
     return parser.parse_args()
@@ -170,17 +178,22 @@ if __name__ == "__main__":
     )
 
     trainer.train()
-
-    output_dir = os.path.join(args.output_dir, "final_checkpoint")
-    trainer.model.save_pretrained(output_dir)
+    trainer.save_model(args.output_dir)
 
     # Free memory for merging weights
     del model
     torch.cuda.empty_cache()
 
-    model = AutoPeftModelForCausalLM.from_pretrained(output_dir, device_map="auto", torch_dtype=torch.bfloat16)
+    model = AutoPeftModelForCausalLM.from_pretrained(args.output_dir, device_map="auto", torch_dtype=torch.bfloat16)
     model = model.merge_and_unload()
 
-    output_merged_dir = os.path.join(args.output_dir, "final_merged_checkpoint")
-    model.save_pretrained(output_merged_dir)
-    tokenizer.save_pretrained(output_merged_dir)
+    model.push_to_hub(
+        args.hf_hub_path,
+        use_temp_dir=True,
+        use_auth_token=args.hf_token,
+    )
+    tokenizer.push_to_hub(
+        args.hf_hub_path,
+        use_temp_dir=True,
+        use_auth_token=args.hf_token,
+    )
