@@ -4,6 +4,7 @@ from accelerate import Accelerator
 from datasets import load_dataset
 from peft import AutoPeftModelForCausalLM, LoraConfig
 from tqdm import tqdm
+import random
 
 from trl import SFTTrainer
 from trl.trainer import ConstantLengthDataset
@@ -22,6 +23,8 @@ def args_parse():
     parser.add_argument("--split", type=str, default="train")
     parser.add_argument("--seq_length", type=int, default=2048)
     parser.add_argument("--num_workers", type=int, default=None)
+    parser.add_argument("--do_sample", type=bool, default=True, help="Sample the dataset.")
+    parser.add_argument("--sample_size", type=int, default=None)
 
     parser.add_argument("--num_epochs", type=int, default=1)
     parser.add_argument("--logging_steps", type=int, default=100)
@@ -66,6 +69,13 @@ def chars_token_ratio(dataset, tokenizer, nb_examples=500):
 
     return total_characters / total_tokens
 
+def dataset_sampling(dataset, sample_size):
+    random_indices = random.sample(range(len(dataset)), sample_size)
+
+    random_samples = dataset.select(random_indices)
+
+    return random_samples
+
 def prompt_formatting(dataset):
     result = ""
     for data in dataset:
@@ -96,6 +106,9 @@ def create_datasets(tokenizer, args):
         split=args.split,
         num_proc=args.num_workers if args.num_workers else None,
     )
+
+    if args.do_sample:
+        dataset = dataset_sampling(dataset, args.sample_size)
 
     dataset = dataset.train_test_split(test_size=0.05, seed=42)
     train_data = dataset["train"]
@@ -132,7 +145,6 @@ if __name__ == "__main__":
         args.model_name,
         device_map={"": Accelerator().process_index},
         trust_remote_code=True,
-        use_flash_attention_2=True,
     )
     model.config.use_cache = False
 

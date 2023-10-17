@@ -5,17 +5,24 @@
 - accelerate config 구성 후 configuration.yaml 파일 저장해두기
 - deepspeed installation이 Runpod에서 밖에 되지 않으니 참고할 것
 
-**accelerate config**
-```
-accelerate config
-```
-
-**SFT Trainer**
+**SFT Trainer(do_sample=True)**
 ```
 accelerate launch --config_file=accelerate_configs/desired_configuration --num_processes GPU_NUMBER SFT/SFTTrainer.py \
     --hf_token YOUR_HUGGINGFACE_TOKEN \
     --hf_hub_path PATH_TO_UPLOAD_MODEL \
-    --save_strategy epoch
+    --save_strategy epoch \
+    --num_workers GPU_NUMS \
+    --sample_size 500000
+```
+
+**SFT Trainer(do_sample=False)**
+```
+accelerate launch --config_file=accelerate_configs/desired_configuration --num_processes GPU_NUMBER SFT/SFTTrainer.py \
+    --hf_token YOUR_HUGGINGFACE_TOKEN \
+    --hf_hub_path PATH_TO_UPLOAD_MODEL \
+    --save_strategy epoch \
+    --num_workers GPU_NUMS \
+    --do_sample False
 ```
 
 **DPO Trainer**
@@ -23,5 +30,6 @@ accelerate launch --config_file=accelerate_configs/desired_configuration --num_p
 accelerate launch --config_file=accelerate_configs/desired_configuration --num_processes GPU_NUMBER DPO/DPOTrainer.py \
     --hf_token YOUR_HUGGINGFACE_TOKEN \
     --hf_hub_path PATH_TO_UPLOAD_MODEL \
-    --save_strategy epoch
+    --save_strategy epoch \
+    --num_workers GPU_NUMS
 ```
