@@ -21,7 +21,7 @@ def args_parse():
     parser.add_argument("--model_name", type=str, default="mistralai/Mistral-7B-v0.1")
     parser.add_argument("--dataset_name", type=str, default="stingning/ultrachat")
     parser.add_argument("--split", type=str, default="train")
-    parser.add_argument("--seq_length", type=int, default=1024)
+    parser.add_argument("--seq_length", type=int, default=2048)
     parser.add_argument("--num_workers", type=int, default=None)
     parser.add_argument("--do_sample", type=bool, default=True, help="Sample the dataset.")
     parser.add_argument("--sample_size", type=int, default=None)
@@ -197,7 +197,7 @@ if __name__ == "__main__":
         eval_dataset=eval_dataset,
         peft_config=peft_config,
         packing=args.packing,
-        max_seq_length=None,
+        max_seq_length=args.seq_length,
         tokenizer=tokenizer,
         neftune_noise_alpha=5,
         args=training_args
