@@ -5,6 +5,32 @@
 - accelerate config 구성 후 configuration.yaml 파일 저장해두기
 - deepspeed installation이 Runpod에서 밖에 되지 않으니 참고할 것
 
+
+
+#### Supervised Fine-Tuning Hyperparameters
+
+The following hyperparameters were used during training:
+
+- learning_rate: 5e-07
+- train_batch_size: 2
+- eval_batch_size: 4
+- seed: 42
+- distributed_type: multi-GPU
+- num_devices: 2 x A100 80G
+- total_train_batch_size: 4
+- total_eval_batch_size: 8
+- grdient_accumulation_steps: 1
+- lr_scheduler_type: cosine
+- warmup_ratio: 0.1
+- weight_decay: 0
+- num_epochs: 1
+
+The following hyperparameters were used for LoRA training:
+
+- lora_r: 8
+- lora_alpha: 16
+- lora_dropout: 0.05
+
 **SFT Trainer(do_sample=True)**
 ```
 accelerate launch --config_file=accelerate_configs/desired_configuration --num_processes GPU_NUMBER SFT/SFTTrainer.py \
@@ -34,21 +60,11 @@ accelerate launch --config_file=accelerate_configs/desired_configuration --num_p
     --num_workers GPU_NUMS
 ```
 
-```
 !accelerate launch --config_file=accelerate_configs/multi_gpu.yaml --num_processes 2 SFT/SFTTrainer_lora.py \
     --hf_token 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 \
     --hf_hub_path Cartinoe5930/Hermes_SFT \
     --save_strategy epoch \
+    --num_workers 2 \
     --sample_size 500000 \
-    --seq_length 1024 \
-    --per_device_train_batch_size 1 \
-    --per_device_train_batch_size 2
-```
-- seq_length 줄여야 할 것 같고
-- multi_gpu.yaml 사용
-- batch_size를 늘릴 수 있는 방법 알아보기
-
-일단 대부분의 상황에서 OOM이 나오는 것을 확인함.
-- num_proc으로 데이터를 불러오니 OOM이 잘 나오는 것을 확인. 대신 training speed는 확실히 빨라졌음.
-- seq_length를 2048로 맞추니 대부분의 경우에서 OOM이 나옴. 따라서 성능에는 저하가 생기겠지만, seq_len=1024로 설정하는 것이 좋을 것 같음.
-- 
+    --per_device_train_batch_size 2 \
+    --per_device_eval_batch_size 4 

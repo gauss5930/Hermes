@@ -31,8 +31,8 @@ def args_parse():
     parser.add_argument("--save_strategy", type=str, help="You can choose the strategy of saving model.")
     parser.add_argument("--save_steps", type=int, default=1000)
     parser.add_argument("--gradient_accumulation_steps", type=int, default=1)
-    parser.add_argument("--per_device_train_batch_size", type=int, default=4)
-    parser.add_argument("--per_device_eval_batch_size", type=int, default=8)
+    parser.add_argument("--per_device_train_batch_size", type=int, default=2)
+    parser.add_argument("--per_device_eval_batch_size", type=int, default=4)
     parser.add_argument("--group_by_length", type=bool, default=False)
     parser.add_argument("--packing", type=bool, default=True)
 
@@ -61,11 +61,12 @@ def args_parse():
 def chars_token_ratio(dataset, tokenizer, nb_examples=500):
     total_characters, total_tokens = 0, 0
     for _, example in tqdm(zip(range(nb_examples), iter(dataset)), total=nb_examples):
-        total_characters += len(example["data"])
+        text = prompt_formatting(example["data"])
+        total_characters += len(text)
         if tokenizer.is_fast:
-            total_tokens += len(tokenizer(example["data"]).tokens())
+            total_tokens += len(tokenizer(text).tokens())
         else:
-            total_tokens += len(tokenizer.tokenize(example["data"]))
+            total_tokens += len(tokenizer.tokenize(text))
 
     return total_characters / total_tokens
 
@@ -139,8 +140,6 @@ def create_datasets(tokenizer, args):
 if __name__ == "__main__":
     args = args_parse()
 
-    gradient_accumulation_steps = torch.cuda.device_count()
-
     model = AutoModelForCausalLM.from_pretrained(
         args.model_name,
         device_map={"": Accelerator().process_index},
@@ -200,6 +199,7 @@ if __name__ == "__main__":
         packing=args.packing,
         max_seq_length=None,
         tokenizer=tokenizer,
+        neftune_noise_alpha=5,
         args=training_args
     )
 
