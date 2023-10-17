@@ -12,14 +12,16 @@ accelerate config
 
 **SFT Trainer**
 ```
-accelerate launch SFT/SFTTrainer.py \
+accelerate launch --config_file=accelerate_configs/desired_configuration --num_processes GPU_NUMBER SFT/SFTTrainer.py \
     --hf_token YOUR_HUGGINGFACE_TOKEN \
-    --hf_hub_path PATH_TO_UPLOAD_MODEL 
+    --hf_hub_path PATH_TO_UPLOAD_MODEL \
+    --save_strategy epoch
 ```
 
 **DPO Trainer**
 ```
-accelerate launch DPO/DPOTrainer.py \
+accelerate launch --config_file=accelerate_configs/desired_configuration --num_processes GPU_NUMBER DPO/DPOTrainer.py \
     --hf_token YOUR_HUGGINGFACE_TOKEN \
-    --hf_hub_path PATH_TO_UPLOAD_MODEL 
+    --hf_hub_path PATH_TO_UPLOAD_MODEL \
+    --save_strategy epoch
 ```

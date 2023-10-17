@@ -27,6 +27,7 @@ def args_parse():
     parser.add_argument("--logging_steps", type=int, default=100)
     parser.add_argument("--save_strategy", type=str, help="You can choose the strategy of saving model.")
     parser.add_argument("--save_steps", type=int, default=1000)
+    parser.add_argument("--gradient_accumulation_steps", type=int, default=1)
     parser.add_argument("--per_device_train_batch_size", type=int, default=4)
     parser.add_argument("--per_device_eval_batch_size", type=int, default=8)
     parser.add_argument("--group_by_length", type=bool, default=False)
@@ -64,6 +65,30 @@ def chars_token_ratio(dataset, tokenizer, nb_examples=500):
             total_tokens += len(tokenizer.tokenize(example["data"]))
 
     return total_characters / total_tokens
+
+def prompt_formatting(dataset):
+    result = ""
+    for data in dataset:
+        if data["role"] == "user":
+            result += f"<|user|>\n{data['content']}</s>"
+        elif data["role"] == "assistant":
+            result += f"<|assitant|>\n{data['content']}</s>"
+        elif data["role"] == "system":
+            result += f"<|system|>\n{data['content']}</s>"
+
+    return result
+
+def process_dataset(example):
+    instruction_prompt = []
+    for i in range(len(example)):
+        if (i + 1) % 2 != 0:
+            instruction_prompt.append({"role": "user", "content": example["data"][i]})
+        else:
+            instruction_prompt.append({"role": "asisstant", "content": example["data"][i]})
+
+    result_data = prompt_formatting(instruction_prompt)
+
+    return result_data
 
 def create_datasets(tokenizer, args):
     dataset = load_dataset(
@@ -128,10 +153,6 @@ if __name__ == "__main__":
         trust_remote_code=True,
     )
 
-    tokenizer.sep_token = "[SEP]"
-    tokenizer.cls_token = "[CLS]"
-    tokenizer.mask_token = "[MASK]"
-
     special_tokens_dict = {"additional_special_tokens": ["<unk>", "<s>", "</s>"]}
     num_added_toks = tokenizer.add_special_tokens(special_tokens_dict)
     model.resize_token_embeddings(len(tokenizer))
@@ -139,24 +160,12 @@ if __name__ == "__main__":
     tokenizer.pad_token = tokenizer.eos_token
     tokenizer.padding_side = "right"
     tokenizer.chat_template = "{% for message in messages %}\n{% if message['role'] == 'user' %}\n{{ '<|user|>\n' + message['content'] + eos_token }}\n{% elif message['role'] == 'system' %}\n{{ '<|system|>\n' + message['content'] + eos_token }}\n{% elif message['role'] == 'assistant' %}\n{{ '<|assistant|>\n'  + message['content'] + eos_token }}\n{% endif %}\n{% if loop.last and add_generation_prompt %}\n{{ '<|assistant|>' }}\n{% endif %}\n{% endfor %}"
-
-    def process_dataset(example, tokenizer=tokenizer):
-        instruction_prompt = []
-        for i in range(len(example)):
-            if (i + 1) % 2 != 0:
-                instruction_prompt.append({"role": "user", "content": example["data"][i]})
-            else:
-                instruction_prompt.append({"role": "asisstant", "content": example["data"][i]})
-    
-        result_data = tokenizer.apply_chat_template(instruction_prompt, tokenize=False)
-    
-        return result_data
     
     training_args = TrainingArguments(
         output_dir=args.output_dir,
         num_train_epochs=args.num_epochs,
         per_device_train_batch_size=args.per_device_train_batch_size,
-        gradient_accumulation_steps=gradient_accumulation_steps,
+        gradient_accumulation_steps=args.gradient_accumulation_steps,
         per_device_eval_batch_size=args.per_device_eval_batch_size,
         save_strategy=args.save_strategy,
         learning_rate=args.learning_rate,

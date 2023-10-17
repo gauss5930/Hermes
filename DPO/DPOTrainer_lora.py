@@ -26,6 +26,7 @@ def args_parse():
     parser.add_argument("--per_device_train_batch_size", type=int, default=8)
     parser.add_argument("--per_device_eval_batch_size", type=int, default=16)
     parser.add_argument("--gradient_checkpointing", type=bool, default=True)
+    parser.add_argument("--gradient_accumulation_steps", type=int, default=1)
 
     parser.add_argument("--lora_alpha", type=int, default=16)
     parser.add_argument("--lora_dropout", type=float, default=0.05)
@@ -46,6 +47,18 @@ def args_parse():
 def get_hermes_dataset(dataset, tokenizer, num_proc=42):
 
     original_columns = dataset.column_names
+
+    def prompt_formatting(dataset):
+        result = ""
+        for data in dataset:
+            if data["role"] == "user":
+                result += f"<|user|>\n{data['content']}</s>"
+            elif data["role"] == "assistant":
+                result += f"<|assitant|>\n{data['content']}</s>"
+            elif data["role"] == "system":
+                result += f"<|system|>\n{data['content']}</s>"
+
+        return result
 
     def dataset_process(data):
         response_list = []
@@ -72,7 +85,7 @@ def get_hermes_dataset(dataset, tokenizer, num_proc=42):
         else:
             response_list.append({"role": "user", "content": data["prompt"]})
 
-        return tokenizer.apply_chat_template(response_list) + "\n<|assistant|>\n"
+        return prompt_formatting(response_list) + "\n<|assistant|>\n"
 
     def return_prompt_and_responses(samples):            
         return {
@@ -90,8 +103,6 @@ def get_hermes_dataset(dataset, tokenizer, num_proc=42):
 
 if __name__ == "__main__":
     args = args_parse()
-
-    gradient_accumulation_steps = torch.cuda.device_count()
 
     model = AutoPeftModelForCausalLM.from_pretrained(
         args.model_path,
@@ -139,7 +150,7 @@ if __name__ == "__main__":
         logging_steps=args.logging_steps,
         save_strategy=args.save_strategy,
         save_steps=args.save_steps if args.save_strategy == "steps" else None,
-        gradient_accumulation_steps=gradient_accumulation_steps,
+        gradient_accumulation_steps=args.gradient_accumulation_steps,
         gradient_checkpointing=args.gradient_checkpointing,
         learning_rate=args.learning_rate,
         evaluation_strategy="steps",
