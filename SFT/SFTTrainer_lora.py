@@ -61,7 +61,7 @@ def args_parse():
 def chars_token_ratio(dataset, tokenizer, nb_examples=500):
     total_characters, total_tokens = 0, 0
     for _, example in tqdm(zip(range(nb_examples), iter(dataset)), total=nb_examples):
-        text = prompt_formatting(example["data"])
+        text = process_dataset(example)
         total_characters += len(text)
         if tokenizer.is_fast:
             total_tokens += len(tokenizer(text).tokens())
@@ -91,7 +91,7 @@ def prompt_formatting(dataset):
 
 def process_dataset(example):
     instruction_prompt = []
-    for i in range(len(example)):
+    for i in range(len(example["data"])):
         if (i + 1) % 2 != 0:
             instruction_prompt.append({"role": "user", "content": example["data"][i]})
         else:
