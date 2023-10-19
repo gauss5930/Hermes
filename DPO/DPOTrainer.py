@@ -104,12 +104,14 @@ if __name__ == "__main__":
         torch_dtype=torch.float16
     )
     model.config.use_cache = False
+    model.enable_input_require_grads()
 
     model_ref = AutoModelForCausalLM.from_pretrained(
         args.model_path,
         low_cpu_mem_usage=True,
         torch_dtype=torch.float16
     )
+    model.enable_input_require_grads()
 
     tokenizer = AutoTokenizer.from_pretrained(args.model_path)
     tokenizer.pad_token = tokenizer.eos_token
@@ -146,7 +148,7 @@ if __name__ == "__main__":
         gradient_checkpointing=args.gradient_checkpointing,
         learning_rate=args.learning_rate,
         evaluation_strategy="steps",
-        eval_steps=args.eval_steps,
+        eval_steps=None if args.eval_strategy == "epoch" else args.eval_steps,
         output_dir=args.output_dir,
         lr_scheduler_type=args.lr_scheduler_type,
         warmup_ratio=args.warmup_ratio,

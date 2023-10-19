@@ -12,6 +12,13 @@ The code of SFT and DPO were referred to [TRL example codes](https://github.com/
 
 All models and dataset are available via HuggingFace: [Caritinoe5930](https://huggingface.co/Cartinoe5930)
 
+## Fine-tuning w/ LoRA
+
+If you want to sample the dataset to reduce the training time, please run the `do_sample=True` code, if you don't want to, just run the `do_sample=False` code.
+There are several individual parameters in the code, the description of these parameters are as follows:
+
+- desired_configuration: The configuration of `accelerate`. You can choose several options such as `multi-gpu`
+
 **SFT Trainer(do_sample=True)**
 ```
 accelerate launch --config_file=accelerate_configs/desired_configuration --num_processes GPU_NUMBER SFT/SFTTrainer.py \

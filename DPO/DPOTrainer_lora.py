@@ -25,8 +25,8 @@ def args_parse():
     parser.add_argument("--num_epoch", type=int, default=1)
     parser.add_argument("--per_device_train_batch_size", type=int, default=2)
     parser.add_argument("--per_device_eval_batch_size", type=int, default=4)
-    parser.add_argument("--gradient_checkpointing", type=bool, default=True)
     parser.add_argument("--gradient_accumulation_steps", type=int, default=1)
+    parser.add_argument("--gradient_checkpointing", type=bool, default=True)
 
     parser.add_argument("--lora_alpha", type=int, default=16)
     parser.add_argument("--lora_dropout", type=float, default=0.05)
@@ -110,12 +110,14 @@ if __name__ == "__main__":
         torch_dtype=torch.float16
     )
     model.config.use_cache = False
+    model.enable_input_require_grads()
 
     model_ref = AutoModelForCausalLM.from_pretrained(
         args.model_path,
         low_cpu_mem_usage=True,
         torch_dtype=torch.float16
     )
+    model.enable_input_require_grads()
 
     tokenizer = AutoTokenizer.from_pretrained(args.model_path)
     tokenizer.pad_token = tokenizer.eos_token
@@ -152,7 +154,7 @@ if __name__ == "__main__":
         gradient_checkpointing=args.gradient_checkpointing,
         learning_rate=args.learning_rate,
         evaluation_strategy=args.eval_strategy,
-        eval_steps=args.eval_steps if args.eval_strategy == "epoch" else None,
+        eval_steps=None if args.eval_strategy == "epoch" else args.eval_steps,
         output_dir=args.output_dir,
         lr_scheduler_type=args.lr_scheduler_type,
         warmup_ratio=args.warmup_ratio,
@@ -192,6 +194,12 @@ if __name__ == "__main__":
 
     dpo_trainer.train()
     dpo_trainer.save_model(args.output_dir)
+
+    del model
+    torch.cuda.empty_cache()
+
+    model = AutoPeftModelForCausalLM.from_pretrained(args.output_dir, device_map="auto", torch_dtype=torch.bfloat16)
+    model = model.merge_and_unload()
 
     model.push_to_hub(
         args.hf_hub_path,
