@@ -14,16 +14,16 @@ def args_parse():
 
     parser.add_argument("--beta", type=float, default=0.1)
 
-    parser.add_argument("--model_path", type=str, default="Cartinoe5930/Hermes_SFT")
+    parser.add_argument("--model_path", type=str, default="Cartinoe5930/Hermes_SFT_neft")
     parser.add_argument("--dataset_path", type=str, default="Cartinoe5930/Hermes_preference")
-    parser.add_argument("--learning_rate", type=float, default=2e-5)
+    parser.add_argument("--learning_rate", type=float, default=5e-7)
     parser.add_argument("--lr_scheduler_type", type=str, default="cosine")
     parser.add_argument("--warmup_ratio", type=float, default=0.1)
     parser.add_argument("--weight_decay", type=float, default=0.0)
 
     parser.add_argument("--num_epoch", type=int, default=1)
-    parser.add_argument("--per_device_train_batch_size", type=int, default=4)
-    parser.add_argument("--per_device_eval_batch_size", type=int, default=8)
+    parser.add_argument("--per_device_train_batch_size", type=int, default=2)
+    parser.add_argument("--per_device_eval_batch_size", type=int, default=4)
     parser.add_argument("--gradient_accumulation_steps", type=int, default=1)
     parser.add_argument("--gradient_checkpointing", type=bool, default=True)
 
