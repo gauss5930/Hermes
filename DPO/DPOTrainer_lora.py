@@ -1,6 +1,6 @@
 import torch
 from datasets import Dataset, load_dataset
-from transformers import AutoTokenizer, TrainingArguments
+from transformers import AutoModelForCausalLM, AutoTokenizer, TrainingArguments
 from peft import AutoPeftModelForCausalLM, LoraConfig
 import os
 
@@ -44,7 +44,7 @@ def args_parse():
 
     return parser.parse_args()
 
-def get_hermes_dataset(dataset, tokenizer, num_proc=42):
+def get_hermes_dataset(dataset):
 
     original_columns = dataset.column_names
 
@@ -60,10 +60,10 @@ def get_hermes_dataset(dataset, tokenizer, num_proc=42):
 
         return result
 
-    def dataset_process(data):
+    def dataset_process(source, data):
         response_list = []
-        if data["source"] == "hh-rlhf":
-            human_splitted = "|split|".join(data["prompt"].split("Human: ")[1:])
+        if source == "hh-rlhf":
+            human_splitted = "|split|".join(data.split("Human: "))
             assistant_splitted = "|split|".join(human_splitted.split("Assistant:"))
             all_splitted = assistant_splitted.split("|split|")[1:-1]
             for i in range(len(all_splitted)):
@@ -72,8 +72,8 @@ def get_hermes_dataset(dataset, tokenizer, num_proc=42):
                 else:
                     response_list.append({"role": "assistant", "content": all_splitted[i]})
 
-        elif data["source"] == "rlhf-reward":
-            human_splitted = "|split|".join(data["prompt"].split("Human: ")[1:])
+        elif source == "rlhf-reward":
+            human_splitted = "|split|".join(data.split("Human: "))
             assistant_splitted = "|split|".join(human_splitted.split("Assistant: "))
             all_splitted = assistant_splitted.split("|split|")[1:]
             for i in range(len(all_splitted)):
@@ -83,35 +83,34 @@ def get_hermes_dataset(dataset, tokenizer, num_proc=42):
                     response_list.append({"role": "assistant", "content": all_splitted[i]})
 
         else:
-            response_list.append({"role": "user", "content": data["prompt"]})
+            response_list.append({"role": "user", "content": data})
 
         return prompt_formatting(response_list) + "\n<|assistant|>\n"
 
     def return_prompt_and_responses(samples):            
         return {
-            "prompt": [dataset_process(instruction) for instruction in samples],
+            "prompt": [dataset_process(source, instruction) for source, instruction in zip(samples["source"], samples["prompt"])],
             "chosen": samples["chosen"],
             "rejected": samples["rejected"]
         }
-    
+
     return dataset.map(
         return_prompt_and_responses,
         batched=True,
-        num_proc=num_proc,
         remove_columns=original_columns,
     )
 
 if __name__ == "__main__":
     args = args_parse()
 
-    model = AutoPeftModelForCausalLM.from_pretrained(
+    model = AutoModelForCausalLM.from_pretrained(
         args.model_path,
         low_cpu_mem_usage=True,
         torch_dtype=torch.float16
     )
     model.config.use_cache = False
 
-    model_ref = AutoPeftModelForCausalLM.from_pretrained(
+    model_ref = AutoModelForCausalLM.from_pretrained(
         args.model_path,
         low_cpu_mem_usage=True,
         torch_dtype=torch.float16
@@ -129,19 +128,15 @@ if __name__ == "__main__":
         split="train"
     )
 
+    dataset = dataset.filter(
+        lambda x: len(x["prompt"]) + len(x["chosen"]) <= args.max_length
+        and len(x["prompt"]) + len(x["rejected"]) <= args.max_length
+    )
+
     train_dataset, eval_dataset = dataset.train_test_split(test_size=0.25, seed=42)
 
-    train_dataset = get_hermes_dataset(dataset=train_dataset, tokenizer=tokenizer)
-    train_dataset = train_dataset.filter(
-        lambda x: len(x["prompt"]) + len(x["chosen"]) <= args.max_length
-        and len(x["prompt"]) + len(x["rejected"]) <= args.max_length
-    )
-
-    eval_dataset = get_hermes_dataset(dataset=eval_dataset, tokenizer=tokenizer)
-    eval_dataset = eval_dataset.filter(
-        lambda x: len(x["prompt"]) + len(x["chosen"]) <= args.max_length
-        and len(x["prompt"]) + len(x["rejected"]) <= args.max_length
-    )
+    train_dataset = get_hermes_dataset(dataset=train_dataset)
+    eval_dataset = get_hermes_dataset(dataset=eval_dataset)
 
     training_args = TrainingArguments(
         num_train_epochs=args.num_epoch,
