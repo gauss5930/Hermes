@@ -37,7 +37,8 @@ def args_parse():
     parser.add_argument("--logging_steps", type=int, default=100)
     parser.add_argument("--save_strategy", type=str, default="epoch")
     parser.add_argument("--save_steps", type=int, default=1000)
-    parser.add_argument("--eval_steps", type=int, default=1000)
+    parser.add_argument("--eval_strategy", type=str, default="epoch")
+    parser.add_argument("--eval_steps", type=int, default=None)
 
     parser.add_argument("--output_dir", type=str, default="DPO/final_checkpoint")
     parser.add_argument("--hf_hub_path", type=str, default="The hub path to upload the model")
@@ -124,15 +125,21 @@ if __name__ == "__main__":
         split="train"
     )
 
-    dataset = dataset.filter(
+    dataset = dataset.train_test_split(test_size=0.25, seed=42)
+    train_dataset = dataset["train"]
+    eval_dataset = dataset["test"]
+
+    train_dataset = get_hermes_dataset(dataset=train_dataset)
+    train_dataset = train_dataset.filter(
         lambda x: len(x["prompt"]) + len(x["chosen"]) <= args.max_length
         and len(x["prompt"]) + len(x["rejected"]) <= args.max_length
     )
-
-    train_dataset, eval_dataset = dataset.train_test_split(test_size=0.25, seed=42)
-
-    train_dataset = get_hermes_dataset(dataset=train_dataset)
+    
     eval_dataset = get_hermes_dataset(dataset=eval_dataset)
+    eval_dataset = eval_dataset.filter(
+        lambda x: len(x["prompt"]) + len(x["chosen"]) <= args.max_length
+        and len(x["prompt"]) + len(x["rejected"]) <= args.max_length
+    )
 
     training_args = TrainingArguments(
         num_train_epochs=args.num_epoch,
@@ -144,8 +151,8 @@ if __name__ == "__main__":
         gradient_accumulation_steps=args.gradient_accumulation_steps,
         gradient_checkpointing=args.gradient_checkpointing,
         learning_rate=args.learning_rate,
-        evaluation_strategy="steps",
-        eval_steps=args.eval_steps,
+        evaluation_strategy=args.eval_strategy,
+        eval_steps=args.eval_steps if args.eval_strategy == "epoch" else None,
         output_dir=args.output_dir,
         lr_scheduler_type=args.lr_scheduler_type,
         warmup_ratio=args.warmup_ratio,

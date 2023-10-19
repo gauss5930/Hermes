@@ -1,35 +1,16 @@
 # Hermes
 
-- accelerate config를 사용해서 accelerate 설정을 진행한다면 속도는 확실히 빨라질 수 있을 것 같음.
-- FSDP & DeepSpeed 활용할 수 있도록 configuration 구성
-- accelerate config 구성 후 configuration.yaml 파일 저장해두기
-- deepspeed installation이 Runpod에서 밖에 되지 않으니 참고할 것
+We introduce the **Hermes** which is a powerful chat model motivated from [zephyr-alpha](https://huggingface.co/HuggingFaceH4/zephyr-7b-alpha)!
 
+Hermes is a fine-tuned version of [Mistral-7b](https://huggingface.co/mistralai/Mistral-7B-v0.1) that targets the powerful chat model. 
+To achieve this goal, we utilized several chat dataset and preference dataset for training dataset, and used [DPO](https://arxiv.org/abs/2305.18290) that is the alternative of RLHF's reward modeling and PPO.
+We also utilized [NEFTune](https://arxiv.org/abs/2310.05914) and LoRA to more improve the performance and efficiency of Hermes!
+We found that the used method are very effective through the experiments with [MT-Bench](https://arxiv.org/abs/2306.05685)!
 
+We hope that this repository will provide people with insight into chat model training using DPO, and that it will be helpful for future researches.
+The code of SFT and DPO were referred to [TRL example codes](https://github.com/huggingface/trl/tree/main/examples/research_projects/stack_llama_2/scripts)
 
-#### Supervised Fine-Tuning Hyperparameters
-
-The following hyperparameters were used during training:
-
-- learning_rate: 5e-07
-- train_batch_size: 2
-- eval_batch_size: 4
-- seed: 42
-- distributed_type: multi-GPU
-- num_devices: 2 x A100 80G
-- total_train_batch_size: 4
-- total_eval_batch_size: 8
-- grdient_accumulation_steps: 1
-- lr_scheduler_type: cosine
-- warmup_ratio: 0.1
-- weight_decay: 0
-- num_epochs: 1
-
-The following hyperparameters were used for LoRA training:
-
-- lora_r: 8
-- lora_alpha: 16
-- lora_dropout: 0.05
+All models and dataset are available via HuggingFace: [Caritinoe5930](https://huggingface.co/Cartinoe5930)
 
 **SFT Trainer(do_sample=True)**
 ```

@@ -119,15 +119,21 @@ if __name__ == "__main__":
         split="train"
     )
 
-    dataset = dataset.filter(
+    dataset = dataset.train_test_split(test_size=0.25, seed=42)
+    train_dataset = dataset["train"]
+    eval_dataset = dataset["test"]
+
+    train_dataset = get_hermes_dataset(dataset=train_dataset)
+    train_dataset = train_dataset.filter(
         lambda x: len(x["prompt"]) + len(x["chosen"]) <= args.max_length
         and len(x["prompt"]) + len(x["rejected"]) <= args.max_length
     )
-
-    train_dataset, eval_dataset = dataset.train_test_split(test_size=0.25, seed=42)
-
-    train_dataset = get_hermes_dataset(dataset=train_dataset)
+    
     eval_dataset = get_hermes_dataset(dataset=eval_dataset)
+    eval_dataset = eval_dataset.filter(
+        lambda x: len(x["prompt"]) + len(x["chosen"]) <= args.max_length
+        and len(x["prompt"]) + len(x["rejected"]) <= args.max_length
+    )
 
     training_args = TrainingArguments(
         num_train_epochs=args.num_epoch,
