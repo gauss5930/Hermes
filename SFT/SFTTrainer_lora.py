@@ -30,6 +30,8 @@ def args_parse():
     parser.add_argument("--logging_steps", type=int, default=100)
     parser.add_argument("--save_strategy", type=str, help="You can choose the strategy of saving model.")
     parser.add_argument("--save_steps", type=int, default=1000)
+    parser.add_argument("--eval_strategy", type=str, help="You can choose the strategy of evaluating model.")
+    parser.add_argument("--eval_steps", type=int, default=1000)
     parser.add_argument("--gradient_accumulation_steps", type=int, default=1)
     parser.add_argument("--gradient_checkpointing", type=bool, default=True)
     parser.add_argument("--per_device_train_batch_size", type=int, default=2)
@@ -74,20 +76,20 @@ def process_dataset(example):
             if data["role"] == "user":
                 result += f"<|user|>\n{data['content']}</s>"
             elif data["role"] == "assistant":
-                result += f"<|assitant|>\n{data['content']}</s>"
+                result += f"<|assistant|>\n{data['content']}</s>"
             elif data["role"] == "system":
                 result += f"<|system|>\n{data['content']}</s>"
 
         return result
     
     result_data = []
-    for n in range(len(example)):
+    for n in range(len(example["data"])):
         instruction_prompt = []
         for i in range(len(example["data"][n])):
             if (i + 1) % 2 != 0:
                 instruction_prompt.append({"role": "user", "content": example["data"][n][i]})
             else:
-                instruction_prompt.append({"role": "asisstant", "content": example["data"][n][i]})
+                instruction_prompt.append({"role": "assistant", "content": example["data"][n][i]})
 
         result_data.append(prompt_formatting(instruction_prompt))
 
@@ -151,10 +153,13 @@ if __name__ == "__main__":
         per_device_train_batch_size=args.per_device_train_batch_size,
         gradient_accumulation_steps=args.gradient_accumulation_steps,
         per_device_eval_batch_size=args.per_device_eval_batch_size,
+        gradient_checkpointing=args.gradient_checkpointing,
         save_strategy=args.save_strategy,
+        evaluation_strategy=args.eval_strategy,
         learning_rate=args.learning_rate,
         logging_steps=args.logging_steps,
         save_steps=args.save_steps if args.save_strategy == "steps" else None,
+        eval_steps=args.save_steps if args.save_strategy == "steps" else None,
         group_by_length=args.group_by_length,
         lr_scheduler_type=args.lr_scheduler_type,
         warmup_ratio=args.warmup_ratio,
@@ -164,7 +169,7 @@ if __name__ == "__main__":
 
     train_dataset, eval_dataset = create_datasets(args)
 
-    response_template = "<|assistant?|\n"
+    response_template = "<|assistant|>\n"
     collator = DataCollatorForCompletionOnlyLM(response_template=response_template, tokenizer=tokenizer)
 
     trainer = SFTTrainer(
